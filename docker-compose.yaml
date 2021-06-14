@@ -1,0 +1,73 @@
+version: '3'
+
+services:
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - .:/app
+      - ./docker/php/.bashrc:/home/phpuser/.bashrc
+    working_dir: /app
+
+  front:
+    image: node:14.17-buster
+    volumes:
+      - .:/app
+    user: "node"
+    working_dir: /app/front
+    environment:
+      - NODE_ENV=development
+    command: "npm run dev"
+
+  nginx:
+    image: nginx:1.18
+    depends_on:
+      - app
+      - db
+    ports:
+      - 80:80
+    volumes:
+      - .:/app
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      default:
+        aliases:
+          - shop.home
+          - server.shop.home
+
+  db:
+    image: mariadb:10.3.24
+    environment:
+      MYSQL_DATABASE: shop
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - .:/app
+      - dbdata:/var/lib/mysql
+    ports:
+      - 3306:3306
+
+  phpmyadmin:
+    image: phpmyadmin:5.0.2-apache
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      PMA_HOST: db
+    volumes:
+      - ./docker/phpmyadmin/config.user.inc.php:/etc/phpmyadmin/config.user.inc.php
+    ports:
+      - 81:80
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    logging:
+      driver: 'none'  # disable saving logs
+    ports:
+      - 1025:1025 # smtp server
+      - 82:8025 # web ui
+
+volumes:
+  dbdata:
+
+networks:
+  default:
